@@ -2,46 +2,37 @@ import streamlit as st
 import pandas as pd
 import random
 
-# Title
-st.title("🧠 Aptitude Test Generator for Kids (Ages 8–16)")
+# Load the question bank
+df = pd.read_csv("verified_question_bank_complete.csv")
 
-# Upload question bank
-uploaded_file = st.file_uploader("📤 Upload your question bank CSV", type=["csv"])
+# App title
+st.title("🧠 Aptitude Test Generator for Kids")
 
-if uploaded_file:
-    df = pd.read_csv(uploaded_file)
+# Dropdowns for age group and category (no default selection)
+age_group = st.selectbox("Select Age Group", options=["", "8-10", "11-13", "14-16"])
+category = st.selectbox("Select Subject", options=["", "Math", "Logic", "Verbal"])
 
-    # Select age group and category
-    age_group = st.selectbox("Select Age Group", sorted(df["age_group"].unique()))
-    category = st.selectbox("Select Category", sorted(df["category"].unique()))
+# Function to generate questions
+def generate_questions(age_group, category, num_questions=5):
+    filtered = df[(df['age_group'] == age_group) & (df['category'] == category)]
+    return filtered.sample(n=min(num_questions, len(filtered))).reset_index(drop=True)
 
-    # Filter questions
-    filtered = df[(df["age_group"] == age_group) & (df["category"] == category)]
+# Session state to store questions
+if 'questions' not in st.session_state:
+    st.session_state.questions = pd.DataFrame()
 
-    # Randomly select 5 questions
-    questions = filtered.sample(n=min(5, len(filtered)), random_state=42)
+# Generate or refresh questions
+if age_group and category:
+    if st.button("Generate Questions") or st.button("Refresh Questions"):
+        st.session_state.questions = generate_questions(age_group, category)
 
-    st.subheader("📝 Your Aptitude Test")
-
-    user_answers = {}
-
-    for i, row in questions.iterrows():
-        st.markdown(f"**Q{i+1}: {row['question']}**")
-        options = row["options"].split(";")
-        user_answers[i] = st.radio(
-            label="Choose your answer:",
-            options=options,
-            index=None,
-            key=f"question_{i}"
-        )
-
-    if st.button("Submit Answers"):
-        score = 0
-        for i, row in questions.iterrows():
-            correct = row["answer"]
-            if user_answers[i] == correct:
-                score += 1
-        st.success(f"✅ You scored {score} out of {len(questions)}.")
-else:
-    st.info("Please upload a question bank CSV to begin.")
+# Display questions
+if not age_group or not category:
+    st.info("Please select both age group and subject to generate questions.")
+elif not st.session_state.questions.empty:
+    st.subheader("Your Questions")
+    for idx, row in st.session_state.questions.iterrows():
+        st.markdown(f"**Q{idx+1}. {row['question']}**")
+        options = row['options'].split(';')
+        st.radio(f"Options for Q{idx+1}", options, key=f"q{idx+1}")
 
