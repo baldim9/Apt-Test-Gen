@@ -1,30 +1,41 @@
-import pandas as pd
 import streamlit as st
+import pandas as pd
+import random
 
-# Title of the app
+# Load the question bank
+df = pd.read_csv("verified_question_bank_complete.csv")
+
+# Set up the Streamlit app
 st.title("Aptitude Test Generator")
 
-# File uploader for user to upload their own question bank
-uploaded_file = st.file_uploader("Upload your question bank (CSV format)", type=["csv"])
+# Dropdowns for age group and subject with no default selection
+age_group = st.selectbox("Select Age Group", options=[""] + sorted(df['age_group'].unique().tolist()))
+subject = st.selectbox("Select Subject", options=[""] + sorted(df['category'].unique().tolist()))
 
-if uploaded_file is not None:
-    try:
-        # Read the uploaded CSV file into a DataFrame
-        question_bank = pd.read_csv(uploaded_file)
+# Initialize session state for questions
+if 'questions' not in st.session_state:
+    st.session_state.questions = []
 
-        # Display the first few rows of the uploaded question bank
-        st.subheader("Preview of Uploaded Question Bank")
-        st.dataframe(question_bank.head())
+# Function to generate questions
+def generate_questions():
+    filtered_df = df[(df['age_group'] == age_group) & (df['category'] == subject)]
+    st.session_state.questions = filtered_df.sample(n=min(10, len(filtered_df))).reset_index(drop=True)
 
-        # Display basic stats
-        st.write(f"Total questions uploaded: {len(question_bank)}")
-        st.write("Available age groups:", question_bank['age_group'].unique())
-        st.write("Available categories:", question_bank['category'].unique())
+# Show buttons only if both dropdowns are selected
+if age_group and subject:
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        if st.button("Generate Questions"):
+            generate_questions()
+    with col2:
+        if st.button("Refresh Questions"):
+            generate_questions()
 
-        # Additional logic for test generation can be added here
-
-    except Exception as e:
-        st.error(f"Error reading the uploaded file: {e}")
-else:
-    st.info("Please upload a CSV file to begin.")
+# Display questions if available
+if st.session_state.questions:
+    st.subheader("Your Questions")
+    for i, row in st.session_state.questions.iterrows():
+        st.markdown(f"**Q{i+1}: {row['question']}**")
+        options = row['options'].split(';')
+        st.radio(f"Options for Q{i+1}", options, key=f"q{i+1}")
 
